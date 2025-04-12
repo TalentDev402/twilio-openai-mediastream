@@ -25,17 +25,20 @@ A real-time voice assistant application that enables two-way conversations betwe
 ## Installation
 
 1. Clone the repository:
+
    ```bash
    git clone [repository-url]
    cd twilio-openai-mediastream
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Create a `.env` file in the root directory with the following variables:
+
    ```env
    TWILIO_ACCOUNT_SID=your_twilio_account_sid
    TWILIO_AUTH_TOKEN=your_twilio_auth_token
@@ -49,14 +52,17 @@ A real-time voice assistant application that enables two-way conversations betwe
 ## Development Setup
 
 1. Start the development server:
+
    ```bash
    npm run dev
    ```
 
 2. Set up ngrok for local development:
+
    ```bash
    ngrok http 5050
    ```
+
    Copy the generated ngrok URL (e.g., `https://[your-ngrok-subdomain].ngrok.app`).
 
 3. Configure your Twilio phone number:
@@ -69,20 +75,21 @@ A real-time voice assistant application that enables two-way conversations betwe
 
 ## Project Structure
 
-```
-.
-├── index.js          # Main application entry point
-├── twilio.js         # Twilio integration and routes
-├── openai.js         # OpenAI Realtime API integration
-├── whisper.js        # Audio processing utilities
-├── supabase.js       # Database integration
-├── utils.js          # Helper functions
-└── package.json      # Project dependencies and scripts
-```
+   ```plaintext
+   .
+   ├── index.js          # Main application entry point
+   ├── twilio.js         # Twilio integration and routes
+   ├── openai.js         # OpenAI Realtime API integration
+   ├── whisper.js        # Audio processing utilities
+   ├── supabase.js       # Database integration
+   ├── utils.js          # Helper functions
+   └── package.json      # Project dependencies and scripts
+   ```
 
 ## Usage
 
 1. Start the application:
+
    ```bash
    npm start
    ```
