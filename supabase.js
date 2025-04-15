@@ -95,9 +95,9 @@ export async function getTodayOrdersByPhone(phone) {
       .from("orders")
       .select("*")
       .eq("phone", phone)
-      .gte("created_at", startOfDay)
-      .lte("created_at", endOfDay)
-      .order("created_at", { ascending: false });
+      .gte("updated_at", startOfDay)
+      .lte("updated_at", endOfDay)
+      .order("updated_at", { ascending: false });
 
     if (error) {
       console.error(`[Supabase] Error fetching today's orders for ${phone}: ${error.message}`);
