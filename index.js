@@ -5,6 +5,7 @@ import fastifyWs from "@fastify/websocket";
 import fastifyMultipart from "@fastify/multipart";
 import { setupTwilioRoutes } from "./twilio.js";
 import { setupOpenAIWebSocket} from "./openai.js";
+import { getTodayOrdersByPhone } from "./supabase.js";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -32,4 +33,6 @@ fastify.listen({ port: PORT, host: "0.0.0.0" }, async (err) => {
     process.exit(1);
   }
   console.log(`Server is listening on port ${PORT}`);
+  const pendingOrders = await getTodayOrdersByPhone("+12108522586");
+  console.log(pendingOrders)
 });
