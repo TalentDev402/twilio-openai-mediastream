@@ -19,7 +19,7 @@ const fastify = Fastify({
 function formatPendingOrders(orders) {
   return orders
     .map((order, idx) => {
-      return `#${idx + 1}: Ordered ${order.foods} at ${moment(order.updated_at).format("hh:mm A")} to be ready for pick up at ${order.time}, location: ${order.location}, total: ${order.price}`;
+      return `#${idx + 1}: Ordered ${order.foods} at ${moment(order.updated_at).utc().format("hh:mm A")} to be ready for pick up at ${order.time}, location: ${order.location}, total: ${order.price}`;
     })
     .join(" | ");
 }
