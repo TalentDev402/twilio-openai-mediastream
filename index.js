@@ -5,6 +5,7 @@ import fastifyWs from "@fastify/websocket";
 import fastifyMultipart from "@fastify/multipart";
 import { setupTwilioRoutes } from "./twilio.js";
 import { setupOpenAIWebSocket} from "./openai.js";
+import { getTodayOrders } from "./supabase.js";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -26,7 +27,7 @@ setupOpenAIWebSocket(fastify);
 
 // Start the server
 const PORT = process.env.PORT || 5050;
-fastify.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
+fastify.listen({ port: PORT, host: "0.0.0.0" }, async (err) => {
   if (err) {
     console.error(err);
     process.exit(1);
