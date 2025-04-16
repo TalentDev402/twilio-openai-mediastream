@@ -53,6 +53,46 @@ export async function addOrder(name, phone, foods, location, time, price) {
 }
 
 /**
+ * Updates an existing order in the Supabase database
+ * @param {object} oldOrder - The existing order object (must include ID)
+ * @param {string} foods - Updated food items
+ * @param {string} time - Updated time
+ * @param {string} location - Updated location
+ * @param {number} price - Updated price
+ * @returns {Promise<void>}
+ */
+export async function updateOrder(oldOrder, foods, time, location, price) {
+  try {
+    const orderId = oldOrder?.id;
+
+    if (!orderId) {
+      throw new Error("Invalid order object: missing ID");
+    }
+
+    const { data, error } = await supabase
+      .from("orders")
+      .update({
+        foods,
+        time,
+        location,
+        price,
+      })
+      .eq("id", orderId)
+      .select();
+
+    if (error) {
+      console.error(`[Supabase] Error updating order ID ${orderId}: ${error.message}`);
+      throw error;
+    }
+
+    console.log(`[Supabase] Order updated successfully. ID: ${orderId}`);
+  } catch (error) {
+    console.error(`[Supabase] Unexpected error during update: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
  * Fetches all orders placed today
  * @returns {Promise<Array>} - List of today's orders
  */

@@ -7,6 +7,7 @@ import { setupTwilioRoutes } from "./twilio.js";
 import { setupOpenAIWebSocket} from "./openai.js";
 import { getTodayOrdersByPhone } from "./supabase.js";
 import moment from "moment-timezone";
+import { formatPendingOrder } from "./utils.js";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -15,14 +16,6 @@ dotenv.config();
 const fastify = Fastify({
   logger: true,
 });
-
-function formatPendingOrders(orders) {
-  return orders
-    .map((order, idx) => {
-      return `#${idx + 1}: Ordered ${order.foods} at ${moment(order.updated_at).utc().format("hh:mm A")} to be ready for pick up at ${order.time}, location: ${order.location}, total: ${order.price}`;
-    })
-    .join(" | ");
-}
 
 // Register plugins
 fastify.register(fastifyFormBody);
@@ -43,6 +36,8 @@ fastify.listen({ port: PORT, host: "0.0.0.0" }, async (err) => {
   }
   console.log(`Server is listening on port ${PORT}`);
   const pendingOrders = await getTodayOrdersByPhone("+12108522586");
-  const formatted = formatPendingOrders(pendingOrders);
+  const lastOrder = pendingOrders[pendingOrders.length - 1];
+  // console.log("Pending Orders:", pendingOrders);
+  const formatted = formatPendingOrder(lastOrder);
   console.log(formatted)
 });

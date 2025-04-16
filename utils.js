@@ -1,4 +1,5 @@
 import fs from 'fs'
+import moment from "moment-timezone";
 
 /**
  * Safely deletes a file if it exists
@@ -16,3 +17,7 @@ export const deleteFileSafe = (filePath) => {
     // console.error(`[Utils] Error deleting file ${filePath}: ${error.message}`);
   }
 };
+
+export const formatPendingOrder = (order) => {
+  return `${order.name}(${order.phone}) ordered ${order.foods} at ${moment(order.updated_at).utc().format("hh:mm A")} to be ready for pick up at ${order.time}, location: ${order.location}, total: ${order.price}`;
+}

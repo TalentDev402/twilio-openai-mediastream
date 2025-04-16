@@ -1,9 +1,9 @@
 import WebSocket from "ws";
-import { deleteFileSafe } from "./utils.js";
+import { deleteFileSafe, formatPendingOrder } from "./utils.js";
 import dotenv from "dotenv";
 import moment from "moment-timezone";
 import fs from "fs";
-import { addOrder } from "./supabase.js";
+import { addOrder, getTodayOrdersByPhone, updateOrder } from "./supabase.js";
 import twilio from "twilio";
 import OpenAI from "openai";
 import {
@@ -11,6 +11,7 @@ import {
   saveG711uLawAsWav,
   transcribeAudio,
 } from "./whisper.js";
+import { time } from "console";
 
 // Load environment variables
 dotenv.config();
@@ -50,6 +51,20 @@ Restaurant Information:
   - Hermitage patrons may take food to Shooters Bar next door
 
 Order Processing Protocol:
+
+If the user has existing orders today:
+Before starting a new order, ask:
+*"I see you already placed an order earlier today. Would you like to update your existing order, or place a brand new one?"*
+
+If the user says "update":
+→ Confirm the user name as well as previous pending order and proceed with order processing protocol below (Reference previous pending order).
+
+If the user says "new":
+→ Proceed with a fresh order using the protocol below.
+
+If unclear:
+→ Ask: *"Just to clarify, would you like to update your existing order or place a new one?"*
+
 1. Information Collection (REQUIRED FIELDS):
    a) Customer Name:
       - Must obtain valid human name
@@ -176,9 +191,17 @@ Carefully analyze the conversation to see if the order has been confirmed, and i
 If the order has been confirmed, then generate user's name, ordering foods, location, ordering time, total price from the conversation(based on the last confirmation message or last confirmed content(name, foods, time) which the user has confirmed).
 
 Field Names:
-name, phone, foods, location, time, totalPrice, isOrdered
+name, phone, foods, location, time, totalPrice, isOrdered, isUpdate
 
 Behavior Rules:
+- **isUpdate**: Set to true if the conversation clearly indicates that the user is updating a previous order (e.g., modifying items, time, or location of a prior order).
+  Otherwise, set to false.  
+    To determine this:
+    - Look for language like “change”, “modify”, “update”, “add to previous order” → set isUpdate = true
+    - Language like “place a new order”, “start over”, or no reference to prior orders → set isUpdate = false
+  Default value is false unless user explicitly indicates the intention to update a prior order.  
+  If it's a new order, leave isUpdate as false.
+
 For generating ordering time, follow this guidline:
     - If given a user request specifying a time duration (e.g., 'I want to have it after 30 minutes from now'), calculate the exact order time. (Ordering time = Current time + Time duration) 
     - Format the output as a 24-hour time (HH:MM AM/PM).
@@ -275,8 +298,7 @@ const client = twilio(accountSid, authToken);
  */
 const sendingSMS = async (content, contentToManager, callerNumber) => {
   try {
-    if (content)
-    {
+    if (content) {
       const message = await client.messages.create({
         body: content,
         messagingServiceSid: messagingServiceSid,
@@ -284,8 +306,7 @@ const sendingSMS = async (content, contentToManager, callerNumber) => {
       });
       console.log(`[SMS] Sent to customer ${callerNumber}: ${message.body}`);
     }
-    if (contentToManager)
-    {
+    if (contentToManager) {
       const messageToManager = await client.messages.create({
         body: contentToManager,
         messagingServiceSid: messagingServiceSid,
@@ -344,6 +365,7 @@ export const setupOpenAIWebSocket = (fastify) => {
       let chatHistory = "";
       let shouldTransferToManager = false;
       let callSid = null;
+      let pendingOrders;
       currentCSTTime = moment().tz("America/Chicago").format("hh:mm A");
 
       // Initialize OpenAI WebSocket connection
@@ -540,7 +562,7 @@ export const setupOpenAIWebSocket = (fastify) => {
                 lastOpenAIMessage = transcription;
 
                 handleUserInactivity();
-                
+
                 // Check if we need to transfer to manager
                 if (shouldTransferToManager || transcription.toLowerCase().includes("connect you with our manager")) {
                   console.log("Initiating transfer to manager...");
@@ -648,9 +670,29 @@ export const setupOpenAIWebSocket = (fastify) => {
               streamSid = data.start.streamSid;
               callerNumber = data.start.customParameters.caller;
               callSid = data.start.callSid;
-              // console.log("Caller: ", data.start.customParameters.caller);
               responseStartTimestampTwilio = null;
               latestMediaTimestamp = 0;
+              pendingOrders = await getTodayOrdersByPhone(callerNumber);
+
+              if (pendingOrders?.length > 0) {
+                const lastOrder = pendingOrders[pendingOrders.length - 1];
+                const formattedLastOrder = formatPendingOrder(lastOrder);
+                console.log(formattedLastOrder)
+                const contextInjection = {
+                  type: "conversation.item.create",
+                  item: {
+                    type: "message",
+                    role: "user",
+                    content: [
+                      {
+                        type: "input_text",
+                        text: `Note: Here are the previous order from the caller: ${formattedLastOrder}`,
+                      },
+                    ],
+                  },
+                };
+                openAiWs.send(JSON.stringify(contextInjection));
+              }
               break;
             case "mark":
               if (markQueue.length > 0) {
@@ -663,7 +705,7 @@ export const setupOpenAIWebSocket = (fastify) => {
               if (data.dtmf.digit === '0') {
                 console.log("DTMF 0 received, transferring to manager");
                 shouldTransferToManager = true;
-                
+
                 // First, let OpenAI say the transfer message
                 const transferMessage = {
                   type: "conversation.item.create",
@@ -716,20 +758,18 @@ export const setupOpenAIWebSocket = (fastify) => {
             console.log("Order is not confirmed.");
             return;
           }
-
           console.log("Sending SMS...");
           await sendingSMS(
             `Dear ${jsonData.name},\nWe are pleased to inform you that your order of ${jsonData.foods} has been successfully processed.\nThe total price of your order is ${jsonData.totalPrice} and your food will be prepared at ${jsonData.time} in ${jsonData.location} as requested.\n\nLocation Details:\n${jsonData.location === 'Hendersonville' ? '393 East Main Street, Hendersonville TN 37075, suite 6a' : '5851 Old Hickory Blvd, Hermitage TN 37076 next to Shooters bar and Z-Mart'}\n\nWe hope you enjoy your meal and have a wonderful experience.\nShould you have any questions or need further assistance, please don't hesitate to reach out.\nThank you for choosing us. We look forward to serving you again in the future.\nWarm Regards.`,
             `${jsonData.name}(Contact Number: ${callerNumber}) ordered ${jsonData.foods}. The total price of this order is ${jsonData.totalPrice} and this will must be prepared until ${jsonData.time} in ${jsonData.location} (${jsonData.location === 'Hendersonville' ? '393 East Main Street, Hendersonville TN 37075, suite 6a' : '5851 Old Hickory Blvd, Hermitage TN 37076 next to Shooters bar and Z-Mart'}).`, callerNumber
           );
-          addOrder(
-            jsonData.name,
-            callerNumber,
-            jsonData.foods,
-            jsonData.location,
-            jsonData.time,
-            jsonData.totalPrice
-          );
+          if (jsonData.isUpdate == true) {
+            const orderToUpdate = pendingOrders[pendingOrders.length - 1];
+            updateOrder(orderToUpdate, jsonData.foods, jsonData.time, jsonData.location, jsonData.totalPrice)
+
+          } else {
+            addOrder(jsonData.name, callerNumber, jsonData.foods, jsonData.location, jsonData.time, jsonData.totalPrice);
+          }
 
           fs.writeFileSync("output.json", JSON.stringify(jsonData, null, 2));
         } catch (error) {
