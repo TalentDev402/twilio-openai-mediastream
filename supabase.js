@@ -58,8 +58,8 @@ export async function addOrder(name, phone, foods, location, time, price) {
  */
 export async function getTodayOrders() {
   try {
-    const startOfDay = moment().startOf("day").toISOString();
-    const endOfDay = moment().endOf("day").toISOString();
+    const startOfDay = moment().utc().startOf("day").toISOString();
+    const endOfDay = moment().utc().endOf("day").toISOString();
     console.log(startOfDay, endOfDay)
 
     const { data, error } = await supabase
@@ -88,9 +88,10 @@ export async function getTodayOrders() {
  */
 export async function getTodayOrdersByPhone(phone) {
   try {
-    const startOfDay = moment().startOf("day").toISOString();
-    const endOfDay = moment().endOf("day").toISOString();
-
+    console.log(phone)
+    const startOfDay = moment().utc().startOf("day").toISOString();
+    const endOfDay = moment().utc().endOf("day").toISOString();
+    console.log(startOfDay, endOfDay)
     const { data, error } = await supabase
       .from("orders")
       .select("*")
@@ -98,7 +99,6 @@ export async function getTodayOrdersByPhone(phone) {
       .gte("updated_at", startOfDay)
       .lte("updated_at", endOfDay)
       .order("updated_at", { ascending: false });
-
     if (error) {
       console.error(`[Supabase] Error fetching today's orders for ${phone}: ${error.message}`);
       throw error;
